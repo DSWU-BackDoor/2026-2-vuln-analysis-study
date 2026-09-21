@@ -5,7 +5,8 @@
 **SQL Injection(SQLi)**은 애플리케이션이 사용자 입력값을 검증 없이 **SQL 쿼리문**에 포함시킬 때 발생하는 취약점이다. 공격자는 입력값에 SQL 구문을 끼워 넣어, 개발자가 의도하지 않은 쿼리를 데이터베이스에서 실행시킬 수 있다.
 
 - **OWASP 분류**: A03:2021 - Injection
-- **위험도**: 매우 높음 (인증 우회, 개인정보/전체 DB 탈취, 데이터 변조·삭제)
+- **영향**: 인증 우회, 개인정보/DB 데이터 탈취, 데이터 변조·삭제 등
+  (실제 영향 범위는 쿼리가 실행되는 위치와 DB 계정 권한에 따라 달라진다)
 
 ## 2. 발생 원리
 
@@ -49,8 +50,9 @@ id: admin'--
 
 ### (2) UNION 기반 (UNION-based)
 
-`UNION SELECT`로 다른 테이블의 데이터를 원래 결과에 붙여 추출한다.
-컬럼 개수를 맞춰야 하며, `ORDER BY n` 이나 `UNION SELECT NULL,NULL,...` 로 개수를 찾는다.
+`UNION SELECT`를 이용해 원래 쿼리 결과에 공격자가 원하는 SELECT 결과를 이어 붙인다.
+이때 원래 쿼리와 **컬럼 개수와 데이터 타입이 맞아야** 하며,
+`ORDER BY n` 이나 `UNION SELECT NULL,NULL,...` 로 컬럼 개수를 먼저 찾는다.
 
 ```sql
 ' UNION SELECT username, password FROM users -- 
