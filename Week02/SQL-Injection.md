@@ -66,7 +66,6 @@ WHERE user_id = 'wasabimilk';
 ### SQL Injection이란?
 
 SQL Injection(SQLi)은 웹 애플리케이션과 데이터베이스가 연동되는 과정에서 공격자가 입력값을 통해 SQL 쿼리를 조작하는 공격 기법이다.
-
 주로 다음과 같은 입력 지점에서 발생할 수 있다.
 
 - 로그인
